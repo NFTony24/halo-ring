@@ -70,6 +70,13 @@ async function readAll(type: ReadType, start: Date, end: Date): Promise<any[]> {
   return out;
 }
 
+// Her phone (Samsung Health) writes steps and more too. When the ring wrote a type, use only
+// the ring's records so nothing is counted twice.
+function ringOnly(recs: any[]): any[] {
+  const fromRing = recs.filter((r) => String(r.metadata?.dataOrigin ?? '').includes('oura'));
+  return fromRing.length ? fromRing : recs;
+}
+
 const ms = (iso: string) => new Date(iso).getTime();
 const minutes = (a: number, b: number) => Math.max(0, (b - a) / 60000);
 
@@ -113,7 +120,7 @@ export async function readDays(days: number): Promise<DayData[]> {
   start.setHours(0, 0, 0, 0);
 
   const [sleep, hr, rhr, hrv, steps, cal, spo2, resp, temp, flow] = await Promise.all(
-    READ_TYPES.map((t) => readAll(t, start, end)),
+    READ_TYPES.map((t) => readAll(t, start, end).then(ringOnly)),
   );
 
   const map = new Map<string, DayData>();
