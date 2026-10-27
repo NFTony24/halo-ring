@@ -16,6 +16,7 @@ type Props = {
   onMenu: () => void;
   onDevices: () => void;
   onVitals: (section: string) => void;
+  onOpen: (screen: 'ready' | 'sleep' | 'act' | 'heart' | 'stress' | 'cycle') => void;
   onAdd: () => void;
   onLogPeriod: () => void;
   toast: (m: string) => void;
@@ -98,7 +99,7 @@ function BedtimeCard({ snap }: { snap: Snapshot }) {
   );
 }
 
-export function Today({ snap, tags, onMenu, onDevices, onVitals, onAdd, onLogPeriod, toast }: Props) {
+export function Today({ snap, tags, onMenu, onDevices, onOpen, onAdd, onLogPeriod, toast }: Props) {
   const today = snap.days[snap.days.length - 1];
   const yest = snap.days[snap.days.length - 2];
   const sc = snap.scores[today.date];
@@ -119,12 +120,12 @@ export function Today({ snap, tags, onMenu, onDevices, onVitals, onAdd, onLogPer
 
       <View style={{ paddingVertical: 16 }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingHorizontal: 16 }}>
-          <Pill icon="sprout" value={`${sc.readiness ?? '–'}`} label="Readiness" onPress={() => onVitals('ready')} />
-          <Pill icon="moon" value={`${sc.sleep ?? '–'}`} label="Sleep" onPress={() => onVitals('sleep')} />
-          <Pill icon="crown" value={`${sc.activity}`} label="Activity" onPress={() => onVitals('act')} />
-          {cyc.day ? <Pill icon="burst" value={`${cyc.day}`} label="Cycle day" onPress={() => onVitals('women')} /> : null}
-          <Pill icon="heart" value={lastHr ? `${lastHr.bpm}` : '–'} label="Heart rate" onPress={() => onVitals('heart')} />
-          <Pill icon="waves" small value={`${stressH}h${sc.stressMin % 60}m`} label="Stress" onPress={() => onVitals('stress')} />
+          <Pill icon="sprout" value={`${sc.readiness ?? '–'}`} label="Readiness" onPress={() => onOpen('ready')} />
+          <Pill icon="moon" value={`${sc.sleep ?? '–'}`} label="Sleep" onPress={() => onOpen('sleep')} />
+          <Pill icon="crown" value={`${sc.activity}`} label="Activity" onPress={() => onOpen('act')} />
+          {cyc.day ? <Pill icon="burst" value={`${cyc.day}`} label="Cycle day" onPress={() => onOpen('cycle')} /> : null}
+          <Pill icon="heart" value={lastHr ? `${lastHr.bpm}` : '–'} label="Heart rate" onPress={() => onOpen('heart')} />
+          <Pill icon="waves" small value={`${stressH}h${sc.stressMin % 60}m`} label="Stress" onPress={() => onOpen('stress')} />
         </ScrollView>
         {snap.source === 'sample' ? (
           <T size={12} color={colors.ink3} style={{ marginLeft: 16, marginTop: 10, letterSpacing: 1.5 }}>
@@ -153,7 +154,7 @@ export function Today({ snap, tags, onMenu, onDevices, onVitals, onAdd, onLogPer
 
         <BedtimeCard snap={snap} />
 
-        <Card glow="#273848" onPress={() => onVitals('act')}>
+        <Card glow="#273848" onPress={() => onOpen('act')}>
           <CardHead icon="flame" title="Activity goal" tag={stepPct >= 100 ? 'Goal reached' : `${stepPct}% of goal`} tagColor={colors.sky} />
           <T size={40} style={{ marginTop: 24 }}>
             {today.steps.toLocaleString()} steps
@@ -172,7 +173,7 @@ export function Today({ snap, tags, onMenu, onDevices, onVitals, onAdd, onLogPer
           </View>
         </Card>
 
-        <Card glow="#273848">
+        <Card glow="#273848" onPress={() => onOpen('stress')}>
           <CardHead icon="waves" title="Daytime Stress" tag={sc.stressWord === 'Stressed' ? 'Stressful day' : 'Balanced day'} tagColor="#8ea2ff" extra={lastHr ? ago(lastHr.t) : undefined} />
           <T serif size={38} style={{ marginTop: 26, marginBottom: 12 }}>
             Daily summary
@@ -186,7 +187,7 @@ export function Today({ snap, tags, onMenu, onDevices, onVitals, onAdd, onLogPer
         </Card>
 
         {cyc.day ? (
-          <Card glow="#3b3550">
+          <Card glow="#3b3550" onPress={() => onOpen('cycle')}>
             <CardHead icon="uterus" title="Cycle Insights" tag={`${cyc.phase} phase`} tagColor={colors.lilac} />
             <T serif size={38} style={{ marginTop: 26, marginBottom: 12 }}>
               Cycle day {cyc.day}
@@ -211,7 +212,7 @@ export function Today({ snap, tags, onMenu, onDevices, onVitals, onAdd, onLogPer
           </Card>
         )}
 
-        <Card glow="#273848" onPress={() => onVitals('heart')}>
+        <Card glow="#273848" onPress={() => onOpen('heart')}>
           <CardHead icon="heart" title="Heart rate" tag={lastHr ? ago(lastHr.t) : 'No reading yet'} tagColor={colors.sky} />
           <T size={40} style={{ marginTop: 24 }}>
             {lastHr ? `${lastHr.bpm} bpm` : '–'}
@@ -219,7 +220,7 @@ export function Today({ snap, tags, onMenu, onDevices, onVitals, onAdd, onLogPer
           <HeartRateChart samples={today.hr} resting={today.restingHr ?? snap.baseline.restingHr} wakeAt={today.sleep?.end} />
         </Card>
 
-        <Card glow="#1f3a37" onPress={() => onVitals('ready')}>
+        <Card glow="#1f3a37" onPress={() => onOpen('ready')}>
           <CardHead icon="sprout" title="Readiness" tag={rl} tagColor={levelColor(rl)} />
           <T size={64} style={{ marginTop: 28, lineHeight: 70 }}>
             {sc.readiness ?? '–'}

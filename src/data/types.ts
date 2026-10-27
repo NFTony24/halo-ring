@@ -1,6 +1,10 @@
 // One calendar day of her ring data, keyed by the morning she woke up.
 export type HrSample = { t: number; bpm: number }; // t = epoch ms
 
+export type StageKind = 'awake' | 'rem' | 'light' | 'deep';
+export type Stage = { s: number; e: number; k: StageKind };
+export type Reading = { t: number; v: number };
+
 export type SleepNight = {
   start: number; // epoch ms
   end: number;
@@ -11,6 +15,7 @@ export type SleepNight = {
   lightMin: number;
   awakeMin: number;
   latencyMin: number; // in bed until first sleep stage
+  stages?: Stage[];
 };
 
 export type Nap = { start: number; end: number; minutes: number };
@@ -27,6 +32,8 @@ export type DayData = {
   steps: number;
   activeCal: number;
   hr: HrSample[];
+  hrvSeries?: Reading[]; // overnight HRV readings (ms), when the ring writes more than one
+  stepSeries?: Reading[]; // step counts over short intervals, for the movement chart
   periodLogged?: boolean;
 };
 
@@ -61,6 +68,10 @@ export type Cycle = {
   nextPeriodFrom?: string;
   nextPeriodTo?: string;
   tempSeries: number[]; // last ~16 days of temperature deltas (°F)
+  starts?: string[]; // every period start we know of, oldest first
+  avgLen?: number;
+  variability?: number; // ± days between cycle lengths
+  periodLen?: number;
 };
 
 export type Snapshot = {

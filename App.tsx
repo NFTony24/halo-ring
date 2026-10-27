@@ -13,16 +13,24 @@ import { useUpdate } from './src/update/useUpdate';
 import { Today } from './src/screens/Today';
 import { Vitals } from './src/screens/Vitals';
 import { AddSheet, Devices, Drawer, MyHealth, Profile, Settings } from './src/screens/Menus';
+import { ScoreDetail, SleepHealth, type DetailKind } from './src/screens/Details';
+import { CycleHistory, CycleInsights } from './src/screens/Cycle';
 
 type Tab = 'today' | 'vitals' | 'health';
-type Sub = 'profile' | 'devices' | 'settings' | null;
+type Sub = 'profile' | 'devices' | 'settings' | DetailKind | 'sleepHealth' | 'cycle' | 'cycleHistory';
+const details: string[] = ['ready', 'sleep', 'act', 'heart', 'stress'];
 
 export default function App() {
   const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular, Figtree_400Regular, Figtree_500Medium, Figtree_600SemiBold });
-  const { snap, status, tags, reload, connect, logPeriod, addTag } = useRingData();
+  const { snap, status, tags, reload, connect, logPeriod, addTag, setStepGoal } = useRingData();
   const update = useUpdate();
   const [tab, setTab] = useState<Tab>('today');
-  const [sub, setSub] = useState<Sub>(null);
+  // Screens opened on top of the tabs; back pops one.
+  const [stack, setStack] = useState<Sub[]>([]);
+  const sub = stack[stack.length - 1];
+  const push = (s: Sub) => setStack((st) => [...st, s]);
+  const pop = () => setStack((st) => st.slice(0, -1));
+  const replace = (s: Sub) => setStack((st) => [...st.slice(0, -1), s]);
   const [focus, setFocus] = useState<string | undefined>();
   const [drawer, setDrawer] = useState(false);
   const [sheet, setSheet] = useState(false);
@@ -40,7 +48,7 @@ export default function App() {
 
   useEffect(() => {
     const h = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (sub) return setSub(null), true;
+      if (sub) return pop(), true;
       if (tab !== 'today') return setTab('today'), true;
       return false;
     });
@@ -51,13 +59,13 @@ export default function App() {
     setDrawer(false);
     if (target === 'add') return setSheet(true);
     if (target.startsWith('vitals:')) {
-      setSub(null);
+      setStack([]);
       setTab('vitals');
       setFocus(target.split(':')[1] + ':' + Date.now());
       return;
     }
-    if (target === 'health') return setSub(null), setTab('health');
-    setSub(target as Sub);
+    if (target === 'health') return setStack([]), setTab('health');
+    push(target as Sub);
   };
 
   if (!fontsLoaded || !snap) {
@@ -70,10 +78,27 @@ export default function App() {
   }
 
   let body: React.ReactNode;
-  if (sub === 'profile') body = <Profile onBack={() => setSub(null)} />;
-  else if (sub === 'devices') body = <Devices onBack={() => setSub(null)} snap={snap} />;
-  else if (sub === 'settings') body = <Settings onBack={() => setSub(null)} status={status} source={snap.source} onConnect={connect} onReload={reload} />;
-  else if (tab === 'vitals') body = <Vitals snap={snap} focus={focus?.split(':')[0]} key={focus} />;
+  const periodLogged = () => logPeriod().then(() => toast('Period logged'));
+  if (sub === 'profile') body = <Profile onBack={pop} />;
+  else if (sub === 'devices') body = <Devices onBack={pop} snap={snap} />;
+  else if (sub === 'settings') body = <Settings onBack={pop} status={status} source={snap.source} onConnect={connect} onReload={reload} />;
+  else if (sub && details.includes(sub))
+    body = (
+      <ScoreDetail
+        kind={sub as DetailKind}
+        snap={snap}
+        tags={tags}
+        onBack={pop}
+        onSwitch={replace}
+        onOpen={push}
+        onAdd={() => setSheet(true)}
+        onStepGoal={(g) => setStepGoal(g).then(() => toast('Goal saved'))}
+      />
+    );
+  else if (sub === 'sleepHealth') body = <SleepHealth snap={snap} onBack={pop} />;
+  else if (sub === 'cycle') body = <CycleInsights snap={snap} onBack={pop} onHistory={() => push('cycleHistory')} onLogPeriod={periodLogged} onAdd={() => setSheet(true)} />;
+  else if (sub === 'cycleHistory') body = <CycleHistory snap={snap} onBack={pop} />;
+  else if (tab === 'vitals') body = <Vitals snap={snap} focus={focus?.split(':')[0]} key={focus} onOpen={(k) => push(k as Sub)} />;
   else if (tab === 'health') body = <MyHealth snap={snap} />;
   else
     body = (
@@ -81,10 +106,11 @@ export default function App() {
         snap={snap}
         tags={tags}
         onMenu={() => setDrawer(true)}
-        onDevices={() => setSub('devices')}
+        onDevices={() => push('devices')}
         onVitals={(sec) => go(`vitals:${sec}`)}
+        onOpen={(k) => push(k as Sub)}
         onAdd={() => setSheet(true)}
-        onLogPeriod={() => logPeriod().then(() => toast('Period logged'))}
+        onLogPeriod={periodLogged}
         toast={toast}
       />
     );

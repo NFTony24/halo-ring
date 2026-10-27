@@ -9,9 +9,9 @@ import type { Snapshot } from '../data/types';
 
 const levelColor = (l?: string) => (l === 'Optimal' ? colors.sky : l === 'Good' ? colors.teal : l === 'Fair' ? colors.butter : colors.rose);
 
-function Tile({ title, sub, subColor, children, glow, id, spark, sparkColor }: { title: string; sub?: string; subColor?: string; children: React.ReactNode; glow?: string; id: string; spark?: number[]; sparkColor?: string }) {
+function Tile({ title, sub, subColor, children, glow, id, spark, sparkColor, onPress }: { title: string; sub?: string; subColor?: string; children: React.ReactNode; glow?: string; id: string; spark?: number[]; sparkColor?: string; onPress?: () => void }) {
   return (
-    <View style={st.tile}>
+    <Pressable style={st.tile} onPress={onPress} disabled={!onPress}>
       {glow ? <Glow color={glow} id={id} y="45%" radius="60%" /> : null}
       <View>
         <T size={15} color={colors.ink2}>
@@ -25,7 +25,7 @@ function Tile({ title, sub, subColor, children, glow, id, spark, sparkColor }: {
       </View>
       {spark && spark.length > 1 ? <Spark values={spark} color={sparkColor ?? colors.teal} style={{ marginHorizontal: -18 }} /> : null}
       {children}
-    </View>
+    </Pressable>
   );
 }
 
@@ -50,7 +50,7 @@ function Section({ icon, title, onLayout }: { icon: IconName; title: string; onL
   );
 }
 
-export function Vitals({ snap, focus }: { snap: Snapshot; focus?: string }) {
+export function Vitals({ snap, focus, onOpen }: { snap: Snapshot; focus?: string; onOpen: (screen: string) => void }) {
   const [dayIdx, setDayIdx] = useState(0); // 0 = today, 1 = yesterday
   const scroll = useRef<ScrollViewInstance>(null);
   const pos = useRef<Record<string, number>>({});
@@ -97,32 +97,32 @@ export function Vitals({ snap, focus }: { snap: Snapshot; focus?: string }) {
       <ScrollView ref={scroll} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }}>
         <Section icon="sprout" title="Readiness" onLayout={mark('ready')} />
         <View style={st.grid}>
-          <Tile id="r" title="Readiness Score" sub={rl} subColor={levelColor(rl)} glow="#1f3532">
+          <Tile onPress={() => onOpen('ready')} id="r" title="Readiness Score" sub={rl} subColor={levelColor(rl)} glow="#1f3532">
             <Big>{sc.readiness ?? '–'}</Big>
           </Tile>
-          <Tile id="rhr" title="Resting heart rate" sub="vs your normal" spark={series((x) => x.restingHr)} sparkColor={colors.rose}>
+          <Tile onPress={() => onOpen('ready')} id="rhr" title="Resting heart rate" sub="vs your normal" spark={series((x) => x.restingHr)} sparkColor={colors.rose}>
             <Big unit=" bpm">{d.restingHr ?? '–'}</Big>
           </Tile>
-          <Tile id="hrv" title="HRV balance" sub={snap.baseline.hrvMs ? `Normal ${Math.round(snap.baseline.hrvMs)} ms` : undefined} spark={series((x) => x.hrvMs)}>
+          <Tile onPress={() => onOpen('ready')} id="hrv" title="HRV balance" sub={snap.baseline.hrvMs ? `Normal ${Math.round(snap.baseline.hrvMs)} ms` : undefined} spark={series((x) => x.hrvMs)}>
             <Big unit=" ms">{d.hrvMs ? Math.round(d.hrvMs) : '–'}</Big>
           </Tile>
-          <Tile id="tmp" title="Body temperature" sub="vs your normal" spark={series((x) => x.tempDeltaC)} sparkColor={colors.butter}>
+          <Tile onPress={() => onOpen('ready')} id="tmp" title="Body temperature" sub="vs your normal" spark={series((x) => x.tempDeltaC)} sparkColor={colors.butter}>
             <Big unit="°F">{d.tempDeltaC !== undefined ? `${d.tempDeltaC >= 0 ? '+' : ''}${(d.tempDeltaC * 1.8).toFixed(1)}` : '–'}</Big>
           </Tile>
         </View>
 
         <Section icon="moon" title="Sleep" onLayout={mark('sleep')} />
         <View style={st.grid}>
-          <Tile id="s" title="Sleep Score" sub={sl} subColor={levelColor(sl)} glow="#1f3532">
+          <Tile onPress={() => onOpen('sleep')} id="s" title="Sleep Score" sub={sl} subColor={levelColor(sl)} glow="#1f3532">
             <Big>{sc.sleep ?? '–'}</Big>
           </Tile>
-          <Tile id="bc" title="Body Clock">
+          <Tile onPress={() => onOpen('sleep')} id="bc" title="Body Clock">
             <Word>{sc.bodyClock}</Word>
           </Tile>
-          <Tile id="reg" title="Sleep regularity" spark={series((x) => (x.sleep ? x.sleep.start % 86400000 : undefined))}>
+          <Tile onPress={() => onOpen('sleep')} id="reg" title="Sleep regularity" spark={series((x) => (x.sleep ? x.sleep.start % 86400000 : undefined))}>
             <Word>{sc.regularity}</Word>
           </Tile>
-          <Tile id="debt" title="Sleep debt" sub={sc.sleepDebtMin > 240 ? 'High' : sc.sleepDebtMin > 90 ? 'Moderate' : 'Low'} subColor={colors.butter} spark={series((x) => (x.sleep ? 480 - x.sleep.totalMin : undefined))} sparkColor={colors.butter}>
+          <Tile onPress={() => onOpen('sleep')} id="debt" title="Sleep debt" sub={sc.sleepDebtMin > 240 ? 'High' : sc.sleepDebtMin > 90 ? 'Moderate' : 'Low'} subColor={colors.butter} spark={series((x) => (x.sleep ? 480 - x.sleep.totalMin : undefined))} sparkColor={colors.butter}>
             <Big>
               {debtH}
               <T size={16}>h </T>
@@ -130,17 +130,17 @@ export function Vitals({ snap, focus }: { snap: Snapshot; focus?: string }) {
               <T size={16}>m</T>
             </Big>
           </Tile>
-          <Tile id="br" title="Nighttime Breathing" sub={d.respRate ? `${d.respRate.toFixed(1)} breaths/min` : undefined}>
+          <Tile onPress={() => onOpen('sleep')} id="br" title="Nighttime Breathing" sub={d.respRate ? `${d.respRate.toFixed(1)} breaths/min` : undefined}>
             <Word>{sc.breathing}</Word>
           </Tile>
         </View>
 
         <Section icon="flame" title="Activity" onLayout={mark('act')} />
         <View style={st.grid}>
-          <Tile id="a" title="Activity Score" sub={al} subColor={colors.sky}>
+          <Tile onPress={() => onOpen('act')} id="a" title="Activity Score" sub={al} subColor={colors.sky}>
             <Big>{sc.activity}</Big>
           </Tile>
-          <Tile id="g" title="Activity goal" sub={`${d.steps.toLocaleString()} / ${snap.stepGoal.toLocaleString()} steps`} subColor={colors.sky}>
+          <Tile onPress={() => onOpen('act')} id="g" title="Activity goal" sub={`${d.steps.toLocaleString()} / ${snap.stepGoal.toLocaleString()} steps`} subColor={colors.sky}>
             <View style={st.goal}>
               <View style={[st.goalFill, { width: `${Math.min(100, stepPct)}%` }]} />
             </View>
@@ -150,7 +150,7 @@ export function Vitals({ snap, focus }: { snap: Snapshot; focus?: string }) {
 
         <Section icon="waves" title="Stress" onLayout={mark('stress')} />
         <View style={st.grid}>
-          <Tile id="ds" title="Daytime Stress" sub={`${Math.floor(sc.stressMin / 60)}h ${sc.stressMin % 60}m high`} glow="#33283f">
+          <Tile onPress={() => onOpen('stress')} id="ds" title="Daytime Stress" sub={`${Math.floor(sc.stressMin / 60)}h ${sc.stressMin % 60}m high`} glow="#33283f">
             <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
               {[1, 2, 3, 4, 5].map((k) => (
                 <View key={k} style={[st.seg, k === stressIdx + 1 && { backgroundColor: colors.lilac }]} />
@@ -158,7 +158,7 @@ export function Vitals({ snap, focus }: { snap: Snapshot; focus?: string }) {
             </View>
             <Word>{sc.stressWord}</Word>
           </Tile>
-          <Tile id="res" title="Resilience" spark={series((x) => x.hrvMs)}>
+          <Tile onPress={() => onOpen('stress')} id="res" title="Resilience" spark={series((x) => x.hrvMs)}>
             <Word>{sc.resilience}</Word>
           </Tile>
         </View>
@@ -167,7 +167,7 @@ export function Vitals({ snap, focus }: { snap: Snapshot; focus?: string }) {
           <>
             <Section icon="uterus" title="Women's Health" onLayout={mark('women')} />
             <View style={st.grid}>
-              <Tile id="cy" title="Cycle day" sub={`${snap.cycle.phase} phase`} subColor={colors.lilac} glow="#2d2a3d">
+              <Tile onPress={() => onOpen('cycle')} id="cy" title="Cycle day" sub={`${snap.cycle.phase} phase`} subColor={colors.lilac} glow="#2d2a3d">
                 <Big>{snap.cycle.day - dayIdx}</Big>
               </Tile>
             </View>
@@ -176,10 +176,10 @@ export function Vitals({ snap, focus }: { snap: Snapshot; focus?: string }) {
 
         <Section icon="heartPlus" title="Heart Health" onLayout={mark('heart')} />
         <View style={st.grid}>
-          <Tile id="hr" title="Lowest heart rate" sub="Last night">
+          <Tile onPress={() => onOpen('heart')} id="hr" title="Lowest heart rate" sub="Last night">
             <Big unit=" bpm">{d.hr.length ? Math.min(...d.hr.filter((s) => !d.sleep || s.t <= d.sleep.end).map((s) => s.bpm)) : '–'}</Big>
           </Tile>
-          <Tile id="o2" title="Blood oxygen" sub="Overnight average">
+          <Tile onPress={() => onOpen('sleep')} id="o2" title="Blood oxygen" sub="Overnight average">
             <Big unit="%">{d.spo2 ? Math.round(d.spo2) : '–'}</Big>
           </Tile>
         </View>

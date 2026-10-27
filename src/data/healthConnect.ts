@@ -9,7 +9,7 @@ import {
   SdkAvailabilityStatus,
   SleepStageType,
 } from 'react-native-health-connect';
-import type { DayData, Nap, SleepNight } from './types';
+import type { DayData, Nap, SleepNight, Stage } from './types';
 import { dayKey } from './dates';
 
 const READ_TYPES = [
@@ -77,12 +77,13 @@ function toSleep(rec: any): SleepNight {
   const start = ms(rec.startTime);
   const end = ms(rec.endTime);
   let deep = 0, rem = 0, light = 0, awake = 0, firstSleep: number | undefined;
+  const stages: Stage[] = [];
   for (const s of rec.stages ?? []) {
     const a = ms(s.startTime), b = ms(s.endTime), m = minutes(a, b);
-    if (s.stage === SleepStageType.DEEP) deep += m;
-    else if (s.stage === SleepStageType.REM) rem += m;
-    else if (s.stage === SleepStageType.LIGHT || s.stage === SleepStageType.SLEEPING) light += m;
-    else if (s.stage === SleepStageType.AWAKE || s.stage === SleepStageType.OUT_OF_BED) awake += m;
+    if (s.stage === SleepStageType.DEEP) (deep += m), stages.push({ s: a, e: b, k: 'deep' });
+    else if (s.stage === SleepStageType.REM) (rem += m), stages.push({ s: a, e: b, k: 'rem' });
+    else if (s.stage === SleepStageType.LIGHT || s.stage === SleepStageType.SLEEPING) (light += m), stages.push({ s: a, e: b, k: 'light' });
+    else if (s.stage === SleepStageType.AWAKE || s.stage === SleepStageType.OUT_OF_BED) (awake += m), stages.push({ s: a, e: b, k: 'awake' });
     if (s.stage !== SleepStageType.AWAKE && s.stage !== SleepStageType.OUT_OF_BED && s.stage !== SleepStageType.UNKNOWN) {
       firstSleep = firstSleep === undefined ? a : Math.min(firstSleep, a);
     }
@@ -99,6 +100,7 @@ function toSleep(rec: any): SleepNight {
     lightMin: light,
     awakeMin: awake,
     latencyMin: firstSleep ? minutes(start, firstSleep) : 0,
+    stages: stages.sort((x, y) => x.s - y.s),
   };
 }
 
@@ -147,16 +149,28 @@ export async function readDays(days: number): Promise<DayData[]> {
     acc.forEach((vals, k) => set(day(k), vals.reduce((a, b) => a + b, 0) / vals.length));
   };
   avgInto(hrv, (r) => r.heartRateVariabilityMillis, (d, v) => (d.hrvMs = v));
+  for (const r of hrv) {
+    const d = day(dayKey(ms(r.time)));
+    (d.hrvSeries ??= []).push({ t: ms(r.time), v: r.heartRateVariabilityMillis });
+  }
   avgInto(spo2, (r) => r.percentage, (d, v) => (d.spo2 = v));
   avgInto(resp, (r) => r.rate, (d, v) => (d.respRate = v));
   for (const rec of temp) {
     const deltas = (rec.deltas ?? []).map((x: any) => x.delta?.inCelsius ?? 0);
     if (deltas.length) day(dayKey(ms(rec.endTime))).tempDeltaC = deltas.reduce((a: number, b: number) => a + b, 0) / deltas.length;
   }
-  for (const rec of steps) day(dayKey(ms(rec.endTime))).steps += rec.count ?? 0;
+  for (const rec of steps) {
+    const d = day(dayKey(ms(rec.endTime)));
+    d.steps += rec.count ?? 0;
+    (d.stepSeries ??= []).push({ t: ms(rec.startTime), v: rec.count ?? 0 });
+  }
   for (const rec of cal) day(dayKey(ms(rec.endTime))).activeCal += rec.energy?.inKilocalories ?? 0;
   for (const rec of flow) day(dayKey(ms(rec.time))).periodLogged = true;
 
-  for (const d of map.values()) d.hr.sort((a, b) => a.t - b.t);
+  for (const d of map.values()) {
+    d.hr.sort((a, b) => a.t - b.t);
+    d.hrvSeries?.sort((a, b) => a.t - b.t);
+    d.stepSeries?.sort((a, b) => a.t - b.t);
+  }
   return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
 }

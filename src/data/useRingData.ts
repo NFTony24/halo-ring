@@ -77,5 +77,13 @@ export function useRingData() {
     setTags(next);
   }, []);
 
-  return { snap, status, tags, reload: load, connect, logPeriod, addTag };
+  const setStepGoal = useCallback(
+    async (goal: number) => {
+      await AsyncStorage.setItem(KEYS.goal, JSON.stringify(goal));
+      await load();
+    },
+    [load],
+  );
+
+  return { snap, status, tags, reload: load, connect, logPeriod, addTag, setStepGoal };
 }
