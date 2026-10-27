@@ -3,11 +3,13 @@ import { AppState, Linking, Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
+import * as Updates from 'expo-updates';
 
-const extra = (Constants.expoConfig?.extra ?? {}) as { buildNumber?: number; releaseRepo?: string };
+const extra = (Constants.expoConfig?.extra ?? {}) as { buildNumber?: number; native?: number; releaseRepo?: string };
 export const currentBuild = extra.buildNumber ?? 1;
+const currentNative = extra.native ?? 1;
 
-type Release = { build: number; apkUrl: string };
+type Release = { build: number; native: number; apkUrl: string };
 
 async function latestRelease(): Promise<Release | null> {
   if (!extra.releaseRepo) return null;
@@ -17,19 +19,36 @@ async function latestRelease(): Promise<Release | null> {
   if (!res.ok) return null;
   const json = await res.json();
   const build = Number(/build (\d+)/i.exec(json.name ?? '')?.[1]);
+  const native = Number(/native (\d+)/i.exec(json.name ?? '')?.[1] || 1);
   const apk = (json.assets ?? []).find((a: any) => String(a.name).endsWith('.apk'));
-  return build && apk ? { build, apkUrl: apk.browser_download_url } : null;
+  return build && apk ? { build, native, apkUrl: apk.browser_download_url } : null;
 }
 
-/** Checks GitHub each time the app comes to the front; `install` downloads and opens Android's installer. */
+/** Downloads a live update if one is waiting. Returns true when one is ready to restart into. */
+async function fetchLive(): Promise<boolean> {
+  if (!Updates.isEnabled) return false;
+  const { isAvailable } = await Updates.checkForUpdateAsync();
+  if (!isAvailable) return false;
+  const { isNew } = await Updates.fetchUpdateAsync();
+  return isNew;
+}
+
+/**
+ * Checks for updates each time the app comes to the front. Most come over the air (`live`) and
+ * only need a restart; a new APK (`available`) is offered only when native code changed.
+ */
 export function useUpdate() {
   const [available, setAvailable] = useState<Release | null>(null);
+  const [live, setLive] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const check = useCallback(async () => {
     try {
       const rel = await latestRelease();
-      setAvailable(rel && rel.build > currentBuild ? rel : null);
+      // With live updates on, an APK is only needed when its native version moved on.
+      const needsApk = Updates.isEnabled ? rel && rel.native > currentNative : rel && rel.build > currentBuild;
+      setAvailable(needsApk ? rel : null);
+      if (!needsApk && (await fetchLive())) setLive(true);
     } catch {
       // Offline or GitHub unreachable: try again next time she opens the app.
     }
@@ -62,5 +81,20 @@ export function useUpdate() {
     }
   }, [available]);
 
-  return { available, busy, install, dismiss: () => setAvailable(null) };
+  const restart = useCallback(() => {
+    setBusy(true);
+    Updates.reloadAsync().catch(() => setBusy(false));
+  }, []);
+
+  return {
+    available,
+    live,
+    busy,
+    install,
+    restart,
+    dismiss: () => {
+      setAvailable(null);
+      setLive(false);
+    },
+  };
 }

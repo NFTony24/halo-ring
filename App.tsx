@@ -162,13 +162,18 @@ export default function App() {
           onLogPeriod={() => logPeriod().then(() => toast('Period logged'))}
           onAdd={(t) => addTag(t).then(() => toast('Added to your timeline'))}
         />
-        <Modal visible={!!update.available} transparent animationType="fade" onRequestClose={update.dismiss}>
+        <Modal visible={!!update.available || update.live} transparent animationType="fade" onRequestClose={update.dismiss}>
           <View style={st.updWrap}>
             <View style={st.upd}>
               <T serif size={34} style={{ textAlign: 'center' }}>
                 Update
               </T>
-              <Pressable onPress={update.install} disabled={update.busy} style={st.updBtn} accessibilityLabel="Update">
+              {update.live ? (
+                <T size={15} color={colors.ink2} style={{ textAlign: 'center' }}>
+                  A new version is ready. Halo will restart in a second.
+                </T>
+              ) : null}
+              <Pressable onPress={update.live ? update.restart : update.install} disabled={update.busy} style={st.updBtn} accessibilityLabel="Update">
                 {update.busy ? (
                   <ActivityIndicator color="#1b1b1d" />
                 ) : (

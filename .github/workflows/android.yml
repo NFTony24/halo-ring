@@ -15,6 +15,8 @@ jobs:
     # has to be set for the whole job, not just prebuild.
     env:
       BUILD_NUMBER: ${{ github.run_number }}
+      EXPO_PROJECT_ID: ${{ vars.EXPO_PROJECT_ID }}
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     steps:
       - uses: actions/checkout@v5
 
@@ -30,6 +32,21 @@ jobs:
 
       - run: npm ci
       - run: npx tsc --noEmit
+
+      # Live update: phones on the same native version pick this up next time Halo opens,
+      # with no APK install. Skipped until the Expo token and project are set up.
+      - name: Publish live update
+        if: env.EXPO_TOKEN != ''
+        run: |
+          if ! grep -q "projectId = process.env.EXPO_PROJECT_ID || '[0-9a-f-]\+'" app.config.js && [ -z "$EXPO_PROJECT_ID" ]; then
+            echo "No Expo project id yet, skipping."; exit 0
+          fi
+          npx eas-cli@latest channel:create production --non-interactive || true
+          npx eas-cli@latest update --channel production --platform android --non-interactive \
+            --message "Build ${{ github.run_number }} (${GITHUB_SHA::7})"
+
+      - name: Read native version
+        run: echo "NATIVE=$(node -p "require('./app.config.js')({config:{android:{permissions:[]},extra:{}}}).extra.native")" >> "$GITHUB_ENV"
       - run: npx expo prebuild --platform android --no-install --clean
 
       # Same signing key every build, so a new APK installs over the old one and keeps her data.
@@ -72,4 +89,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest Halo.apk --title "Halo build ${{ github.run_number }}" --notes "Built from ${GITHUB_SHA::7}. Open this page on her phone and tap Halo.apk to install."
+          gh release create latest Halo.apk --title "Halo build ${{ github.run_number }} native $NATIVE" --notes "Built from ${GITHUB_SHA::7}. Open this page on her phone and tap Halo.apk to install."
