@@ -133,7 +133,7 @@ export function Devices({ onBack, snap }: { onBack: () => void; snap: Snapshot }
   );
 }
 
-export function Settings({ onBack, status, source, onConnect, onReload }: { onBack: () => void; status: HcStatus | 'loading'; source: Snapshot['source']; onConnect: () => void; onReload: () => void }) {
+export function Settings({ onBack, status, source, onConnect, onReload, onOpen }: { onBack: () => void; status: HcStatus | 'loading'; source: Snapshot['source']; onConnect: () => void; onReload: () => void; onOpen: (screen: 'setActivity' | 'setWomen') => void }) {
   const label =
     status === 'ready' ? (source === 'health-connect' ? 'Connected' : 'Connected, no data yet') : status === 'needs-install' ? 'Install Health Connect' : status === 'needs-permission' ? 'Tap to allow' : status === 'loading' ? 'Checking…' : 'Android only';
   return (
@@ -151,7 +151,9 @@ export function Settings({ onBack, status, source, onConnect, onReload }: { onBa
       <GroupLabel>General</GroupLabel>
       <ListGroup>
         <ListRow label="Units" value="Imperial" />
-        <ListRow label="Country of residence" value="United States" last />
+        <ListRow label="Country of residence" value="United States" />
+        <ListRow label="Women's Health" right={<Icon name="chev" color={colors.ink2} />} onPress={() => onOpen('setWomen')} />
+        <ListRow label="Activity" right={<Icon name="chev" color={colors.ink2} />} onPress={() => onOpen('setActivity')} last />
       </ListGroup>
       <GroupLabel>Account</GroupLabel>
       <ListGroup>
@@ -261,6 +263,8 @@ export function AddSheet({ open, onClose, onLogPeriod, onAdd }: { open: boolean;
 }
 
 const st = StyleSheet.create({
+  toggle: { width: 52, height: 30, borderRadius: 15, borderWidth: 2, borderColor: colors.ink3, padding: 3, justifyContent: 'center' },
+  knob: { width: 20, height: 20, borderRadius: 10, backgroundColor: colors.cream },
   bar: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
   ringArt: { width: 220, height: 220, borderRadius: 110, borderWidth: 8, borderColor: colors.cream, alignItems: 'center', justifyContent: 'center', marginVertical: 22 },
   scrim: { ...StyleSheet.absoluteFill, backgroundColor: '#000a' },
@@ -272,3 +276,59 @@ const st = StyleSheet.create({
   input: { backgroundColor: colors.surface2, borderRadius: 14, color: colors.ink, fontSize: 18, padding: 14 },
   save: { marginTop: 16, backgroundColor: colors.cream, borderRadius: 999, minHeight: 54, alignItems: 'center', justifyContent: 'center' },
 });
+
+function Toggle({ on, onPress }: { on: boolean; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={[st.toggle, on && { backgroundColor: colors.sky, borderColor: colors.sky }]} accessibilityRole="switch" accessibilityState={{ checked: on }}>
+      <View style={[st.knob, on && { alignSelf: 'flex-end' }]} />
+    </Pressable>
+  );
+}
+
+export function ActivitySettings({ onBack, maxHr, onMaxHr }: { onBack: () => void; maxHr: number; onMaxHr: (v: number) => void }) {
+  return (
+    <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 60, gap: 12 }}>
+      <SubBar title="Activity" onBack={onBack} />
+      <ListGroup>
+        <ListRow
+          label="Max heart rate"
+          right={
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <Pressable hitSlop={8} onPress={() => onMaxHr(Math.max(140, maxHr - 1))} accessibilityLabel="Lower">
+                <T size={22}>−</T>
+              </Pressable>
+              <T weight="bold" size={17}>
+                {maxHr} bpm
+              </T>
+              <Pressable hitSlop={8} onPress={() => onMaxHr(Math.min(220, maxHr + 1))} accessibilityLabel="Raise">
+                <T size={22}>+</T>
+              </Pressable>
+            </View>
+          }
+        />
+        <ListRow label="Reset default" color={colors.sky} onPress={() => onMaxHr(183)} last />
+      </ListGroup>
+      <T size={15} color={colors.ink2}>
+        Used to set your heart rate zones on the Activity page. 183 is what your Oura app uses. If you know your real max heart rate, set it here.
+      </T>
+    </ScrollView>
+  );
+}
+
+export function WomensHealthSettings({ onBack, predictions, onPredictions }: { onBack: () => void; predictions: boolean; onPredictions: (v: boolean) => void }) {
+  return (
+    <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 60, gap: 12 }}>
+      <SubBar title="Women's Health" onBack={onBack} />
+      <ListGroup>
+        <ListRow label="Period predictions" right={<Toggle on={predictions} onPress={() => onPredictions(!predictions)} />} last />
+      </ListGroup>
+      <T size={15} color={colors.ink2}>
+        Show when your next period is likely to start.
+      </T>
+      <GroupLabel>About</GroupLabel>
+      <T size={15} color={colors.ink2}>
+        Halo predicts your period from your logged periods and the natural rise and fall of your body temperature. The more cycles it sees, the better the predictions get. Hormonal treatments such as contraceptives can change temperature patterns; then predictions rely on your logged periods. Your data stays on this phone.
+      </T>
+    </ScrollView>
+  );
+}

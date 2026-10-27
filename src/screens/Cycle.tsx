@@ -1,5 +1,6 @@
 // Cycle Insights and Cycle History, laid out like her app.
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { colors } from '../theme';
 import { Button, Glow, T } from '../ui/kit';
 import { Icon, type IconName } from '../ui/Icon';
@@ -14,18 +15,95 @@ const Caps = ({ children, color = colors.ink2 }: { children: string; color?: str
   </T>
 );
 
-function Row({ icon, label, value, right, tint }: { icon: IconName; label: string; value: string; right?: React.ReactNode; tint?: string }) {
+function Row({ icon, label, value, right, tint, more }: { icon: IconName; label: string; value: string; right?: React.ReactNode; tint?: string; more?: string }) {
+  const [open, setOpen] = useState(false);
   return (
-    <View style={st.row}>
-      <Icon name={icon} size={20} color={tint ?? colors.ink2} />
-      <View style={{ flex: 1 }}>
-        <Caps>{label}</Caps>
-        <T size={16} style={{ marginTop: 4 }}>
-          {value}
-        </T>
+    <Pressable style={st.rowWrap} onPress={more ? () => setOpen((o) => !o) : undefined} disabled={!more}>
+      <View style={st.row}>
+        <Icon name={icon} size={20} color={tint ?? colors.ink2} fill={icon === 'burst' ? tint : undefined} />
+        <View style={{ flex: 1 }}>
+          <Caps>{label}</Caps>
+          <T size={16} style={{ marginTop: 4 }}>
+            {value}
+          </T>
+        </View>
+        {right}
+        {more ? (
+          <View style={{ transform: [{ rotate: open ? '-90deg' : '90deg' }] }}>
+            <Icon name="chev" size={18} color={colors.ink2} />
+          </View>
+        ) : null}
       </View>
-      {right}
-    </View>
+      {open && more ? (
+        <T size={15} color={colors.ink2} style={{ marginTop: 12 }}>
+          {more}
+        </T>
+      ) : null}
+    </Pressable>
+  );
+}
+
+/** Month view: logged period days filled, predicted days dashed, today in cream. */
+function CalendarSheet({ snap, onClose }: { snap: Snapshot; onClose: () => void }) {
+  const c = snap.cycle;
+  const today = dayKey(Date.now());
+  const logged = new Set<string>(snap.days.filter((d) => d.periodLogged).map((d) => d.date));
+  for (const st0 of c.starts ?? []) for (let k = 0; k < (c.periodLen ?? 5); k++) logged.add(addDays(st0, k));
+  const predicted = (k: string) => !!c.nextPeriodFrom && k >= c.nextPeriodFrom && k <= c.nextPeriodTo!;
+  const now = new Date();
+  const months = [-1, 0, 1].map((m) => new Date(now.getFullYear(), now.getMonth() + m, 1));
+  return (
+    <Modal animationType="slide" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        <DetailBar title="Calendar" onBack={onClose} close />
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
+          {months.map((m0) => {
+            const first = (m0.getDay() + 6) % 7;
+            const len = new Date(m0.getFullYear(), m0.getMonth() + 1, 0).getDate();
+            const cells = [...Array(first).fill(null), ...Array.from({ length: len }, (_, k) => dayKey(new Date(m0.getFullYear(), m0.getMonth(), k + 1).getTime()))];
+            return (
+              <View key={m0.getTime()} style={{ marginBottom: 28 }}>
+                <T size={20} style={{ marginBottom: 12 }}>
+                  {m0.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                </T>
+                <View style={st.week}>
+                  {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, k) => (
+                    <T key={k} size={12} color={colors.ink2} style={st.cellText}>
+                      {d}
+                    </T>
+                  ))}
+                </View>
+                <View style={st.grid}>
+                  {cells.map((k, n) =>
+                    k ? (
+                      <View key={k} style={st.cell}>
+                        <View style={[st.day, logged.has(k) && { backgroundColor: '#e0605a' }, predicted(k) && !logged.has(k) && st.dash, k === today && { backgroundColor: colors.cream }]}>
+                          <T size={14} color={k === today ? '#1b1b1d' : predicted(k) && !logged.has(k) ? '#e0605a' : colors.ink}>
+                            {Number(k.slice(8))}
+                          </T>
+                        </View>
+                      </View>
+                    ) : (
+                      <View key={`b${n}`} style={st.cell} />
+                    ),
+                  )}
+                </View>
+              </View>
+            );
+          })}
+          <View style={{ flexDirection: 'row', gap: 18, justifyContent: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={[st.dot, { backgroundColor: '#e0605a' }]} />
+              <T size={13} color={colors.ink2}>Period</T>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={[st.dot, st.dash]} />
+              <T size={13} color={colors.ink2}>Predicted</T>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+    </Modal>
   );
 }
 
@@ -73,12 +151,14 @@ export function CycleInsights({ snap, onBack, onHistory, onLogPeriod, onAdd }: {
   const inWindow = (k: string) => !!c.nextPeriodFrom && k >= c.nextPeriodFrom && k <= c.nextPeriodTo!;
   const loggedToday = snap.days[snap.days.length - 1]?.periodLogged;
   const ovu = c.avgLen ? c.avgLen - 14 : 14;
+  const [cal, setCal] = useState(false);
   const conception = c.day && Math.abs(c.day - ovu) <= 3 ? 'High' : c.day && Math.abs(c.day - ovu) <= 5 ? 'Medium' : 'Low';
 
   return (
     <View style={{ flex: 1 }}>
       <Glow color="#2e2a45" id="cyg" y="0%" radius="130%" />
       <DetailBar title="Cycle Insights" onBack={onBack} close right={<Icon name="info" />} />
+      {cal ? <CalendarSheet snap={snap} onClose={() => setCal(false)} /> : null}
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 60 }}>
         {c.day ? (
           <>
@@ -115,9 +195,14 @@ export function CycleInsights({ snap, onBack, onHistory, onLogPeriod, onAdd }: {
         </T>
 
         <View style={{ gap: 10, marginTop: 22 }}>
-          <Row icon="tag" label="Keeping track" value="Period, symptoms and tags" />
-          <Row icon="burst" tint={colors.lilac} label="Cycle phase" value={c.phase ?? 'Not enough data yet'} />
-          <Row icon="radar" label="Chance of conception" value={conception} />
+          <Row icon="tag" label="Keeping track" value="Period, symptoms and tags" more="Log your period and add tags like cramps, mood or energy with the + button. Tags show on your timeline and help explain your numbers." />
+          <Row icon="burst" tint={colors.lilac} label="Cycle phase" value={c.phase ?? 'Not enough data yet'} more={phaseText(c.phase)} />
+          <Row
+            icon="radar"
+            label="Chance of conception"
+            value={conception}
+            more="Estimated from your cycle day and temperature trend. It is a rough guide only and not a form of birth control."
+          />
           <Row
             icon="drop"
             label="Period"
@@ -130,6 +215,8 @@ export function CycleInsights({ snap, onBack, onHistory, onLogPeriod, onAdd }: {
           />
         </View>
 
+        {snap.predictions ? (
+          <>
         <T size={24} style={{ marginTop: 36, marginBottom: 14 }}>
           Predictions
         </T>
@@ -169,7 +256,16 @@ export function CycleInsights({ snap, onBack, onHistory, onLogPeriod, onAdd }: {
           <T size={13} color={colors.ink2} style={{ marginTop: 16 }}>
             Based on your temperature trends and logged periods
           </T>
+          <Pressable onPress={() => setCal(true)} style={[st.outline, { flexDirection: 'row', gap: 10 }]}>
+            <Icon name="cal" size={20} />
+            <T weight="bold" size={17}>
+              View calendar
+            </T>
+          </Pressable>
         </View>
+
+          </>
+        ) : null}
 
         <T size={24} style={{ marginTop: 36, marginBottom: 14 }}>
           Cycle Stats
@@ -229,7 +325,13 @@ export function CycleHistory({ snap, onBack }: { snap: Snapshot; onBack: () => v
 }
 
 const st = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#ffffff0d', borderRadius: 18, padding: 16 },
+  rowWrap: { backgroundColor: '#ffffff0d', borderRadius: 18, padding: 16 },
+  week: { flexDirection: 'row' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  cell: { width: `${100 / 7}%`, alignItems: 'center', paddingVertical: 4 },
+  cellText: { width: `${100 / 7}%`, textAlign: 'center' },
+  dot: { width: 12, height: 12, borderRadius: 6 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   box: { backgroundColor: '#ffffff0d', borderRadius: 20, padding: 18 },
   reg: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#ffffff14', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   log: { backgroundColor: '#ffffff1f', borderRadius: 999, paddingHorizontal: 18, paddingVertical: 8 },

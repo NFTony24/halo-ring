@@ -7,7 +7,7 @@ import { sampleDays } from './sample';
 import { baselineFor, cycleFor, scoreDay, type Calibration } from './scores';
 import { dayKey } from './dates';
 
-const KEYS = { periods: 'halo.periodStarts', goal: 'halo.stepGoal', cal: 'halo.calibration', tags: 'halo.tags' };
+const KEYS = { periods: 'halo.periodStarts', goal: 'halo.stepGoal', cal: 'halo.calibration', tags: 'halo.tags', maxHr: 'halo.maxHr', predictions: 'halo.predictions' };
 
 async function getJson<T>(key: string, fallback: T): Promise<T> {
   try {
@@ -43,11 +43,13 @@ export function useRingData() {
   const [tags, setTags] = useState<Tag[]>([]);
 
   const load = useCallback(async () => {
-    const [periods, stepGoal, cal, savedTags] = await Promise.all([
+    const [periods, stepGoal, cal, savedTags, maxHr, predictions] = await Promise.all([
       getJson<string[]>(KEYS.periods, []),
       getJson<number>(KEYS.goal, 10000),
       getJson<Calibration>(KEYS.cal, {}),
       getJson<Tag[]>(KEYS.tags, []),
+      getJson<number>(KEYS.maxHr, 183), // what her Oura settings show
+      getJson<boolean>(KEYS.predictions, true),
     ]);
     setTags(savedTags);
     let st: HcStatus;
@@ -70,6 +72,8 @@ export function useRingData() {
       scores,
       cycle: cycleFor(days, source === 'sample' ? [] : periods),
       stepGoal,
+      maxHr,
+      predictions,
       updatedAt: Date.now(),
     });
   }, []);
@@ -107,5 +111,13 @@ export function useRingData() {
     [load],
   );
 
-  return { snap, status, tags, reload: load, connect, logPeriod, addTag, setStepGoal };
+  const setPref = useCallback(
+    async (key: 'maxHr' | 'predictions', value: number | boolean) => {
+      await AsyncStorage.setItem(KEYS[key], JSON.stringify(value));
+      await load();
+    },
+    [load],
+  );
+
+  return { snap, status, tags, reload: load, connect, logPeriod, addTag, setStepGoal, setPref };
 }

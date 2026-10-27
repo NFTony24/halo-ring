@@ -193,7 +193,7 @@ export function Today({ snap, tags, onMenu, onDevices, onOpen, onAdd, onLogPerio
               Cycle day {cyc.day}
             </T>
             <T size={17}>{phaseText(cyc.phase)}</T>
-            {cyc.nextPeriodFrom ? (
+            {cyc.nextPeriodFrom && snap.predictions ? (
               <T size={17} color={colors.lilac} style={{ marginTop: 14 }}>
                 Estimated period start {shortDate(cyc.nextPeriodFrom)} – {shortDate(cyc.nextPeriodTo!)}
               </T>

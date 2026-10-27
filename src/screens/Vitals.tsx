@@ -71,6 +71,8 @@ export function Vitals({ snap, focus, onOpen }: { snap: Snapshot; focus?: string
   const al = level(sc.activity);
   const stepPct = Math.round((d.steps / snap.stepGoal) * 100);
   const debtH = Math.floor(sc.sleepDebtMin / 60);
+  const avgStress = last14.reduce((a, x) => a + (snap.scores[x.date]?.stressMin ?? 0), 0) / Math.max(1, last14.length);
+  const cumulative = avgStress < 30 ? 'Low' : avgStress < 90 ? 'Moderate' : 'High';
   const stressIdx = ['Restored', 'Relaxed', 'Engaged', 'Stressed'].indexOf(sc.stressWord) + 1;
 
   return (
@@ -160,6 +162,9 @@ export function Vitals({ snap, focus, onOpen }: { snap: Snapshot; focus?: string
           </Tile>
           <Tile onPress={() => onOpen('stress')} id="res" title="Resilience" spark={series((x) => x.hrvMs)}>
             <Word>{sc.resilience}</Word>
+          </Tile>
+          <Tile onPress={() => onOpen('stress')} id="cum" title="Cumulative Stress" spark={series((x) => snap.scores[x.date]?.stressMin)} sparkColor={colors.butter}>
+            <Word>{cumulative}</Word>
           </Tile>
         </View>
 

@@ -1,6 +1,6 @@
 // Charts for the score detail screens (Sleep, Readiness, Activity, Sleep Health, Cycle).
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Text, View } from 'react-native';
 import Svg, { Circle, G, Line, Path, Polyline, Rect, Text as SvgText } from 'react-native-svg';
 import { colors, fonts } from '../theme';
 import { clock } from '../data/dates';
@@ -106,6 +106,47 @@ export function Hypnogram({ stages, from, to }: { stages: Stage[]; from: number;
           <TimeAxis from={from} to={to} x={x} y={H - 6} w={w} />
         </Svg>
       )}
+    </View>
+  );
+}
+
+/** Restlessness during the night: a tick wherever heart rate jumps, longer for bigger jumps. */
+export function MovementStrip({ hr, from, to }: { hr: Reading[]; from: number; to: number }) {
+  const [w, onLayout] = useWidth();
+  const H = 40;
+  const x = (t: number) => ((t - from) / (to - from || 1)) * w;
+  const pts = hr.filter((p) => p.t >= from && p.t <= to);
+  const ticks = pts.slice(1).map((p, i) => ({ t: p.t, d: p.v - pts[i].v })).filter((m) => m.d >= 6);
+  return (
+    <View onLayout={onLayout} style={{ marginTop: 8 }}>
+      {w > 0 && (
+        <Svg width={w} height={H}>
+          <Line x1={0} x2={w} y1={H / 2} y2={H / 2} stroke="#ffffff40" />
+          {ticks.map((m) => {
+            const h = Math.min(H - 4, 8 + m.d * 1.2);
+            return <Line key={m.t} x1={x(m.t)} x2={x(m.t)} y1={H / 2 - h / 2} y2={H / 2 + h / 2} stroke={colors.ink} strokeWidth={2} strokeLinecap="round" />;
+          })}
+        </Svg>
+      )}
+    </View>
+  );
+}
+
+export function StageLegend() {
+  const items: [StageKind, string][] = [
+    ['awake', 'Awake'],
+    ['rem', 'REM'],
+    ['light', 'Light'],
+    ['deep', 'Deep sleep'],
+  ];
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 10, flexWrap: 'wrap' }}>
+      {items.map(([k, l]) => (
+        <View key={k} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: stageColor[k] }} />
+          <Text style={{ color: colors.ink2, fontFamily: fonts.sans, fontSize: 13 }}>{l}</Text>
+        </View>
+      ))}
     </View>
   );
 }

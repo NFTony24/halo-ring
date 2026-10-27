@@ -6,7 +6,7 @@ import { colors } from '../theme';
 import { Button, Glow, T } from '../ui/kit';
 import { Icon, type IconName } from '../ui/Icon';
 import { HeartRateChart, StressChart } from '../ui/charts';
-import { BodyClock, DebtSlider, Hypnogram, MovementBars, NightLine, TrendLine, WeekBars, stageColor } from '../ui/detailCharts';
+import { BodyClock, DebtSlider, Hypnogram, MovementBars, MovementStrip, StageLegend, NightLine, TrendLine, WeekBars, stageColor } from '../ui/detailCharts';
 import { activityParts, baselineFor, level, readinessParts, sleepParts, typicalSleep, zoneMinutes, type Contributor } from '../data/scores';
 import { dayKey, hm, shortDate } from '../data/dates';
 import type { DayData, Reading, Snapshot } from '../data/types';
@@ -357,6 +357,11 @@ function Sleep({ snap, i, onOpen }: { snap: Snapshot; i: number; onOpen: Props['
               Total duration {Math.floor(s.inBedMin / 60)}h {Math.round(s.inBedMin % 60)}m
             </T>
             {s.stages?.length ? <Hypnogram stages={s.stages} from={s.start} to={s.end} /> : null}
+            <StageLegend />
+            <T weight="bold" size={13} color={colors.ink2} style={{ letterSpacing: 1.6, textAlign: 'center', marginTop: 20 }}>
+              MOVEMENT
+            </T>
+            <MovementStrip hr={[...(snap.days[i - 1]?.hr ?? []), ...d.hr].map((x) => ({ t: x.t, v: x.bpm }))} from={s.start} to={s.end} />
             <View style={{ marginTop: 18, gap: 10 }}>
               {stages.map(([k, label, min]) => (
                 <View key={k} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -435,7 +440,7 @@ function Activity({ snap, i, tags, onStepGoal }: { snap: Snapshot; i: number; ta
   const [editing, setEditing] = useState(false);
   const parts = activityParts(snap.days, i, snap.stepGoal);
   const resting = d.restingHr ?? snap.baseline.restingHr ?? 60;
-  const zones = zoneMinutes(d);
+  const zones = zoneMinutes(d, snap.maxHr);
   const activeMin = zones.slice(1).reduce((a, b) => a + b, 0);
   const dayStart = new Date(d.date + 'T00:00:00').getTime();
   const elapsed = Math.min(1, (Math.min(Date.now(), dayStart + 86400000) - dayStart) / 86400000);
@@ -445,8 +450,8 @@ function Activity({ snap, i, tags, onStepGoal }: { snap: Snapshot; i: number; ta
   // This week, Sunday to Saturday: minutes in zones 1-5.
   const sunday = dayStart - new Date(dayStart).getDay() * 86400000;
   const weekDays = Array.from({ length: 7 }, (_, k) => snap.days.find((x) => x.date === dayKey(sunday + k * 86400000 + 3600000)));
-  const week = weekDays.map((x) => (x ? zoneMinutes(x).slice(1).reduce((a, b) => a + b, 0) : undefined));
-  const weekZones = weekDays.reduce((acc, x) => (x ? zoneMinutes(x).map((v, k) => acc[k] + v) : acc), [0, 0, 0, 0, 0, 0]);
+  const week = weekDays.map((x) => (x ? zoneMinutes(x, snap.maxHr).slice(1).reduce((a, b) => a + b, 0) : undefined));
+  const weekZones = weekDays.reduce((acc, x) => (x ? zoneMinutes(x, snap.maxHr).map((v, k) => acc[k] + v) : acc), [0, 0, 0, 0, 0, 0]);
   const savedMin = week.reduce<number>((a, v) => a + (v ?? 0), 0);
   const moveFrom = d.sleep?.end ?? dayStart + 6 * 3600000;
 
@@ -582,11 +587,13 @@ function Stress({ snap, i }: { snap: Snapshot; i: number }) {
 export function ScoreDetail({ kind, snap, tags, onBack, onSwitch, onOpen, onAdd, onStepGoal }: Props) {
   const [dayIdx, setDayIdx] = useState(0);
   const i = snap.days.length - 1 - dayIdx;
+  const older = snap.days[snap.days.length - 3];
+  const olderLabel = older ? new Date(older.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : undefined;
   return (
     <View style={{ flex: 1 }}>
       <Glow color={glowFor[kind]} id={`dg${kind}`} y="0%" radius="120%" />
       <DetailBar title={titles[kind]} onBack={onBack} right={<Icon name="share" />} />
-      <DayTabs idx={dayIdx} setIdx={setDayIdx} />
+      <DayTabs idx={dayIdx} setIdx={setDayIdx} labels={olderLabel ? [olderLabel, 'Yesterday', 'Today'] : undefined} />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }} key={`${kind}${dayIdx}`}>
         {kind === 'ready' && <Readiness snap={snap} i={i} />}
         {kind === 'sleep' && <Sleep snap={snap} i={i} onOpen={onOpen} />}

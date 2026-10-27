@@ -12,17 +12,17 @@ import { useRingData } from './src/data/useRingData';
 import { useUpdate } from './src/update/useUpdate';
 import { Today } from './src/screens/Today';
 import { Vitals } from './src/screens/Vitals';
-import { AddSheet, Devices, Drawer, MyHealth, Profile, Settings } from './src/screens/Menus';
+import { ActivitySettings, AddSheet, Devices, Drawer, MyHealth, Profile, Settings, WomensHealthSettings } from './src/screens/Menus';
 import { ScoreDetail, SleepHealth, type DetailKind } from './src/screens/Details';
 import { CycleHistory, CycleInsights } from './src/screens/Cycle';
 
 type Tab = 'today' | 'vitals' | 'health';
-type Sub = 'profile' | 'devices' | 'settings' | DetailKind | 'sleepHealth' | 'cycle' | 'cycleHistory';
+type Sub = 'profile' | 'devices' | 'settings' | 'setActivity' | 'setWomen' | DetailKind | 'sleepHealth' | 'cycle' | 'cycleHistory';
 const details: string[] = ['ready', 'sleep', 'act', 'heart', 'stress'];
 
 export default function App() {
   const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular, Figtree_400Regular, Figtree_500Medium, Figtree_600SemiBold });
-  const { snap, status, tags, reload, connect, logPeriod, addTag, setStepGoal } = useRingData();
+  const { snap, status, tags, reload, connect, logPeriod, addTag, setStepGoal, setPref } = useRingData();
   const update = useUpdate();
   const [tab, setTab] = useState<Tab>('today');
   // Screens opened on top of the tabs; back pops one.
@@ -81,7 +81,9 @@ export default function App() {
   const periodLogged = () => logPeriod().then(() => toast('Period logged'));
   if (sub === 'profile') body = <Profile onBack={pop} />;
   else if (sub === 'devices') body = <Devices onBack={pop} snap={snap} />;
-  else if (sub === 'settings') body = <Settings onBack={pop} status={status} source={snap.source} onConnect={connect} onReload={reload} />;
+  else if (sub === 'settings') body = <Settings onBack={pop} status={status} source={snap.source} onConnect={connect} onReload={reload} onOpen={push} />;
+  else if (sub === 'setActivity') body = <ActivitySettings onBack={pop} maxHr={snap.maxHr} onMaxHr={(v) => setPref('maxHr', v)} />;
+  else if (sub === 'setWomen') body = <WomensHealthSettings onBack={pop} predictions={snap.predictions} onPredictions={(v) => setPref('predictions', v)} />;
   else if (sub && details.includes(sub))
     body = (
       <ScoreDetail

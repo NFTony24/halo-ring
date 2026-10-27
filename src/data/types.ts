@@ -81,5 +81,7 @@ export type Snapshot = {
   scores: Record<string, DayScores>;
   cycle: Cycle;
   stepGoal: number;
+  maxHr: number;
+  predictions: boolean;
   updatedAt: number;
 };
