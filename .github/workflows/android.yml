@@ -11,6 +11,7 @@ permissions:
 jobs:
   apk:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     # The Gradle step re-reads app.config.js when it bundles the JS, so the build number
     # has to be set for the whole job, not just prebuild.
     env:
@@ -48,6 +49,10 @@ jobs:
       - name: Read native version
         run: echo "NATIVE=$(node -p "require('./app.config.js')({config:{android:{permissions:[]},extra:{}}}).extra.native")" >> "$GITHUB_ENV"
       - run: npx expo prebuild --platform android --no-install --clean
+
+      # Gradle's default 512 MB metaspace runs out once expo-updates is in, and the build hangs.
+      - name: Give Gradle more memory
+        run: sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g/' android/gradle.properties
 
       # Same signing key every build, so a new APK installs over the old one and keeps her data.
       - name: Restore signing key
