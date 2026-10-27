@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, BackHandler, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, BackHandler, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
@@ -9,6 +9,7 @@ import { colors } from './src/theme';
 import { T } from './src/ui/kit';
 import { Icon, type IconName } from './src/ui/Icon';
 import { useRingData } from './src/data/useRingData';
+import { useUpdate } from './src/update/useUpdate';
 import { Today } from './src/screens/Today';
 import { Vitals } from './src/screens/Vitals';
 import { AddSheet, Devices, Drawer, MyHealth, Profile, Settings } from './src/screens/Menus';
@@ -19,6 +20,7 @@ type Sub = 'profile' | 'devices' | 'settings' | null;
 export default function App() {
   const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular, Figtree_400Regular, Figtree_500Medium, Figtree_600SemiBold });
   const { snap, status, tags, reload, connect, logPeriod, addTag } = useRingData();
+  const update = useUpdate();
   const [tab, setTab] = useState<Tab>('today');
   const [sub, setSub] = useState<Sub>(null);
   const [focus, setFocus] = useState<string | undefined>();
@@ -132,6 +134,29 @@ export default function App() {
           onLogPeriod={() => logPeriod().then(() => toast('Period logged'))}
           onAdd={(t) => addTag(t).then(() => toast('Added to your timeline'))}
         />
+        <Modal visible={!!update.available} transparent animationType="fade" onRequestClose={update.dismiss}>
+          <View style={st.updWrap}>
+            <View style={st.upd}>
+              <T serif size={34} style={{ textAlign: 'center' }}>
+                Update
+              </T>
+              <Pressable onPress={update.install} disabled={update.busy} style={st.updBtn} accessibilityLabel="Update">
+                {update.busy ? (
+                  <ActivityIndicator color="#1b1b1d" />
+                ) : (
+                  <T weight="bold" size={18} color="#1b1b1d">
+                    Update
+                  </T>
+                )}
+              </Pressable>
+              <Pressable onPress={update.dismiss} hitSlop={10}>
+                <T size={15} color={colors.ink2}>
+                  Later
+                </T>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -143,5 +168,8 @@ const st = StyleSheet.create({
   nav: { flex: 1, flexDirection: 'row', justifyContent: 'space-around', backgroundColor: '#2a2a2ef2', borderRadius: 999, paddingVertical: 10, borderWidth: 1, borderColor: '#ffffff12' },
   navBtn: { alignItems: 'center', gap: 4, minWidth: 72, paddingVertical: 4 },
   fab: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#34343a', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#ffffff14', elevation: 8 },
+  updWrap: { flex: 1, backgroundColor: '#000b', alignItems: 'center', justifyContent: 'center', padding: 32 },
+  upd: { width: '100%', maxWidth: 340, backgroundColor: colors.surface, borderRadius: 28, padding: 28, alignItems: 'center', gap: 18 },
+  updBtn: { alignSelf: 'stretch', minHeight: 54, borderRadius: 999, backgroundColor: colors.cream, alignItems: 'center', justifyContent: 'center' },
   toast: { position: 'absolute', alignSelf: 'center', bottom: 120, backgroundColor: colors.cream, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 999 },
 });
