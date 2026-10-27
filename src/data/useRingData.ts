@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { DayScores, Snapshot } from './types';
 import { readDays, healthConnectStatus, askForAccess, type HcStatus } from './healthConnect';
@@ -57,6 +58,9 @@ export function useRingData() {
 
   useEffect(() => {
     load();
+    // Re-read when she comes back to the app, e.g. after allowing access in Health Connect.
+    const sub = AppState.addEventListener('change', (st) => st === 'active' && load());
+    return () => sub.remove();
   }, [load]);
 
   const connect = useCallback(async () => {
