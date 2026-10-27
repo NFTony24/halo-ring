@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { DayScores, Snapshot } from './types';
+import type { DayData, DayScores, Snapshot } from './types';
 import { readDays, healthConnectStatus, askForAccess, type HcStatus } from './healthConnect';
 import { sampleDays } from './sample';
 import { baselineFor, cycleFor, scoreDay, type Calibration } from './scores';
@@ -16,6 +16,23 @@ async function getJson<T>(key: string, fallback: T): Promise<T> {
   } catch {
     return fallback;
   }
+}
+
+// Like Oura, the day doesn't turn over at midnight: until 4 AM (and before any sleep is
+// recorded) the small hours still belong to yesterday.
+function rollover(days: DayData[]): DayData[] {
+  const last = days[days.length - 1];
+  const prev = days[days.length - 2];
+  if (!last || !prev || last.sleep || new Date().getHours() >= 4) return days;
+  const merged: DayData = {
+    ...prev,
+    steps: prev.steps + last.steps,
+    activeCal: prev.activeCal + last.activeCal,
+    hr: [...prev.hr, ...last.hr],
+    naps: [...prev.naps, ...last.naps],
+    stepSeries: [...(prev.stepSeries ?? []), ...(last.stepSeries ?? [])],
+  };
+  return [...days.slice(0, -2), merged];
 }
 
 export type Tag = { t: number; kind: 'tag' | 'activity' | 'meal'; text: string };
@@ -43,6 +60,7 @@ export function useRingData() {
     let days = st === 'ready' ? await readDays(60).catch(() => []) : [];
     const source: Snapshot['source'] = days.some((d) => d.sleep || d.steps) ? 'health-connect' : 'sample';
     if (source === 'sample') days = sampleDays();
+    else days = rollover(days);
     const scores: Record<string, DayScores> = {};
     days.forEach((d, i) => (scores[d.date] = scoreDay(days, i, stepGoal, cal)));
     setSnap({
