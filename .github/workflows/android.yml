@@ -11,6 +11,10 @@ permissions:
 jobs:
   apk:
     runs-on: ubuntu-latest
+    # The Gradle step re-reads app.config.js when it bundles the JS, so the build number
+    # has to be set for the whole job, not just prebuild.
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
     steps:
       - uses: actions/checkout@v5
 
@@ -27,8 +31,6 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npx expo prebuild --platform android --no-install --clean
-        env:
-          BUILD_NUMBER: ${{ github.run_number }}
 
       # Same signing key every build, so a new APK installs over the old one and keeps her data.
       - name: Restore signing key
