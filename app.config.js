@@ -5,8 +5,8 @@ const build = Number(process.env.BUILD_NUMBER || 1);
 // Builds with the same number take over-the-air updates; a new number means a new APK.
 const native = 1;
 
-// Set once the Expo project exists; until then live updates stay off and only APKs ship.
-const projectId = process.env.EXPO_PROJECT_ID || '';
+// The Expo project that hosts live updates.
+const projectId = process.env.EXPO_PROJECT_ID || '5c3d607b-09f7-431d-90cd-fde7a7765b2c';
 
 module.exports = ({ config }) => ({
   ...config,
